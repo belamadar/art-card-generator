@@ -1,91 +1,113 @@
 import pandas as pd
+import argparse
+import json
+import os
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.lib import colors
-import json
-import os
 
-# Configuration: card size (85mm x 52.48mm) and layout
-PAGE_WIDTH, PAGE_HEIGHT = A4
-CARD_WIDTH = 85 * mm
-CARD_HEIGHT = 52.48 * mm
-MARGIN_X = 10 * mm
-MARGIN_Y = 10 * mm
-COLUMNS = int((PAGE_WIDTH - 2 * MARGIN_X) // CARD_WIDTH)
-ROWS = int((PAGE_HEIGHT - 2 * MARGIN_Y) // CARD_HEIGHT)
+# --------------------
+# Helper: load data
+# --------------------
+def load_data(path):
+    ext = os.path.splitext(path)[1].lower()
+    if ext == '.json':
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return pd.DataFrame(data)
+    elif ext in ['.csv', '.xlsx']:
+        if ext == '.csv':
+            return pd.read_csv(path)
+        else:
+            return pd.read_excel(path)
+    else:
+        raise ValueError(f"Unsupported file format: {ext}")
 
-# Styling
-BACKGROUND_COLOR = colors.HexColor('#fdfcfb')  # subtle cream
-BORDER_COLOR = colors.HexColor('#a7988a')     # soft taupe
-TITLE_FONT = ('Helvetica-Bold', 14)
-TEXT_FONT = ('Helvetica', 9)
-PRICE_FONT = ('Helvetica-Oblique', 12)
-LINE_COLOR = colors.HexColor('#e3d5ca')
-
-# File paths: support JSON or CSV with Swedish keys
-data_file = 'målningar.json'  # or 'målningar.csv'
-pdf_file = 'kartkort.pdf'
-
-# Read data
-ext = os.path.splitext(data_file)[1].lower()
-if ext == '.json':
-    with open(data_file, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    df = pd.DataFrame(data)
-elif ext == '.csv':
-    df = pd.read_csv(data_file)
-else:
-    raise ValueError('Felaktigt filformat: ' + ext)
-
-# Create PDF
-c = canvas.Canvas(pdf_file, pagesize=A4)
-
-def draw_card(x, y, data):
-    # Background and border
-    c.setFillColor(BACKGROUND_COLOR)
-    c.roundRect(x, y, CARD_WIDTH, CARD_HEIGHT, radius=3*mm, fill=1, stroke=0)
-    c.setStrokeColor(BORDER_COLOR)
-    c.roundRect(x, y, CARD_WIDTH, CARD_HEIGHT, radius=3*mm, fill=0, stroke=1)
-
-    padding = 6 * mm
-    # Title (Namn)
-    c.setFont(*TITLE_FONT)
-    c.setFillColor(BORDER_COLOR)
+# --------------------
+# Draw one card
+# --------------------
+def draw_card(c, x, y, data, styles):
+    CARD_WIDTH, CARD_HEIGHT, padding = styles['CARD_WIDTH'], styles['CARD_HEIGHT'], styles['padding']
+    # background
+    c.setFillColor(styles['BACKGROUND_COLOR'])
+    c.roundRect(x, y, CARD_WIDTH, CARD_HEIGHT, radius=3*mm, fill=1)
+    # border
+    c.setStrokeColor(styles['BORDER_COLOR'])
+    c.roundRect(x, y, CARD_WIDTH, CARD_HEIGHT, radius=3*mm, fill=0)
+    # title
+    c.setFont(*styles['TITLE_FONT'])
+    c.setFillColor(styles['BORDER_COLOR'])
     c.drawCentredString(x + CARD_WIDTH/2, y + CARD_HEIGHT - padding, data.get('namn', ''))
-    # Separator line
-    c.setStrokeColor(LINE_COLOR)
-    c.setLineWidth(0.5)
+    # line
     line_y = y + CARD_HEIGHT - padding - 4
+    c.setStrokeColor(styles['LINE_COLOR'])
+    c.setLineWidth(0.5)
     c.line(x + padding, line_y, x + CARD_WIDTH - padding, line_y)
-
-    # Technique (Teknik)
-    c.setFont(*TEXT_FONT)
+    # teknik
+    c.setFont(*styles['TEXT_FONT'])
     c.setFillColor(colors.black)
-    teknikt = f"Teknik: {data.get('teknik', '')}"
-    c.drawString(x + padding, line_y - 12, teknikt)
+    c.drawString(x + padding, line_y - 12, f"Teknik: {data.get('teknik', '')}")
+    # storlek
+    sz = data.get('storlek', '')
+    if sz:
+        c.drawString(x + padding, line_y - 25, f"Storlek: {sz}")
+    # pris
+    c.setFont(*styles['PRICE_FONT'])
+    price_text = f"{data.get('pris', 0)} kr"
+    w = c.stringWidth(price_text, *styles['PRICE_FONT'])
+    c.drawString(x + CARD_WIDTH - padding - w, y + padding, price_text)
 
-    # Price (Pris)
-    c.setFont(*PRICE_FONT)
-    pris = data.get('pris', 0)
-    price_text = f"{pris} kr"
-    text_width = c.stringWidth(price_text, *PRICE_FONT)
-    c.drawString(x + CARD_WIDTH - padding - text_width, y + padding, price_text)
+# --------------------
+# Main: generate PDF
+# --------------------
+def create_cards(data_file, output_file):
+    # page/card config
+    PAGE_WIDTH, PAGE_HEIGHT = A4
+    CARD_WIDTH = 85 * mm
+    CARD_HEIGHT = 52.48 * mm
+    padding = 6 * mm
+    MARGIN_X = 10 * mm
+    MARGIN_Y = 10 * mm
+    cols = int((PAGE_WIDTH - 2*MARGIN_X)//CARD_WIDTH)
+    rows = int((PAGE_HEIGHT - 2*MARGIN_Y)//CARD_HEIGHT)
+    # styles
+    styles = {
+        'CARD_WIDTH': CARD_WIDTH,
+        'CARD_HEIGHT': CARD_HEIGHT,
+        'padding': padding,
+        'BACKGROUND_COLOR': colors.HexColor('#fdfcfb'),
+        'BORDER_COLOR': colors.HexColor('#a7988a'),
+        'LINE_COLOR': colors.HexColor('#e3d5ca'),
+        'TITLE_FONT': ('Helvetica-Bold', 14),
+        'TEXT_FONT': ('Helvetica', 9),
+        'PRICE_FONT': ('Helvetica-Oblique', 12)
+    }
+    # load
+    df = load_data(data_file)
+    # PDF
+    c = canvas.Canvas(output_file, pagesize=A4)
+    col = row = 0
+    for _, row_data in df.iterrows():
+        x = MARGIN_X + col*CARD_WIDTH
+        y = PAGE_HEIGHT - MARGIN_Y - (row+1)*CARD_HEIGHT
+        draw_card(c, x, y, row_data, styles)
+        col += 1
+        if col >= cols:
+            col = 0
+            row += 1
+        if row >= rows:
+            c.showPage()
+            row = 0
+    c.save()
+    print(f"Created {output_file} with {len(df)} cards from {data_file}.")
 
-# Loop through paintings and place cards
-col = row = 0
-for _, row_data in df.iterrows():
-    x = MARGIN_X + col * CARD_WIDTH
-    y = PAGE_HEIGHT - MARGIN_Y - (row + 1) * CARD_HEIGHT
-    draw_card(x, y, row_data)
-    col += 1
-    if col >= COLUMNS:
-        col = 0
-        row += 1
-    if row >= ROWS:
-        c.showPage()
-        row = 0
-
-# Save PDF
-c.save()
-print(f"Skapade {pdf_file} med {len(df)} kort.")
+# --------------------
+# Entry: CLI args
+# --------------------
+if __name__ == '__main__':
+    p = argparse.ArgumentParser(description='Generate printable art cards from data file')
+    p.add_argument('data_file', help='Input .json, .csv, or .xlsx file with keys namn, teknik, storlek, pris')
+    p.add_argument('-o', '--output', default='kartkort.pdf', help='Output PDF filename')
+    args = p.parse_args()
+    create_cards(args.data_file, args.output)
