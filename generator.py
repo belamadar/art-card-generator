@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 
 import pandas as pd
 import argparse
@@ -124,8 +125,19 @@ def create_cards(data_file, output_file):
 # Entry: CLI args
 # --------------------
 if __name__ == '__main__':
-    p = argparse.ArgumentParser(description='Generate printable art cards from data file')
-    p.add_argument('data_file', help='Input .json, .csv, or .xlsx file with keys namn, teknik, storlek, pris, konstnär')
-    p.add_argument('-o', '--output', default='kartkort.pdf', help='Output PDF filename')
-    args = p.parse_args()
-    create_cards(args.data_file, args.output)
+    import sys
+    default_input = 'målningar.csv'
+    default_output = 'kartkort.pdf'
+
+    if len(sys.argv) == 1:
+        # No arguments: use defaults
+        print("No arguments given. Using default input/output.")
+        create_cards(default_input, default_output)
+    else:
+        # Use argparse as usual
+        p = argparse.ArgumentParser(description='Generate printable art cards from data file')
+        p.add_argument('data_file', help='Input .json, .csv, or .xlsx file with keys namn, teknik, storlek, pris, konstnär')
+        p.add_argument('-o', '--output', default='kartkort.pdf', help='Output PDF filename')
+        args = p.parse_args()
+        create_cards(args.data_file, args.output)
+
