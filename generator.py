@@ -1,11 +1,20 @@
+
 import pandas as pd
 import argparse
 import json
 import os
 from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.lib import colors
+
+# --------------------
+# Setup font
+# --------------------
+pdfmetrics.registerFont(TTFont('LibreBaskerville', 'LibreBaskerville-Regular.ttf'))
+pdfmetrics.registerFont(TTFont('LibreBaskerville-Bold', 'LibreBaskerville-Bold.ttf'))
 
 # --------------------
 # Helper: load data
@@ -29,63 +38,72 @@ def load_data(path):
 # --------------------
 def draw_card(c, x, y, data, styles):
     CARD_WIDTH, CARD_HEIGHT, padding = styles['CARD_WIDTH'], styles['CARD_HEIGHT'], styles['padding']
-    # background
-    c.setFillColor(styles['BACKGROUND_COLOR'])
-    c.roundRect(x, y, CARD_WIDTH, CARD_HEIGHT, radius=3*mm, fill=1)
-    # border
-    c.setStrokeColor(styles['BORDER_COLOR'])
-    c.roundRect(x, y, CARD_WIDTH, CARD_HEIGHT, radius=3*mm, fill=0)
-    # title
-    c.setFont(*styles['TITLE_FONT'])
-    c.setFillColor(styles['BORDER_COLOR'])
-    c.drawCentredString(x + CARD_WIDTH/2, y + CARD_HEIGHT - padding, data.get('namn', ''))
-    # line
-    line_y = y + CARD_HEIGHT - padding - 4
-    c.setStrokeColor(styles['LINE_COLOR'])
+
+    # Background
+    c.setFillColor(colors.white)
+    c.rect(x, y, CARD_WIDTH, CARD_HEIGHT, fill=1, stroke=0)
+
+    # Border (cutting guide)
+    c.setStrokeColor(colors.lightgrey)
     c.setLineWidth(0.5)
-    c.line(x + padding, line_y, x + CARD_WIDTH - padding, line_y)
-    # teknik
-    c.setFont(*styles['TEXT_FONT'])
+    c.rect(x, y, CARD_WIDTH, CARD_HEIGHT, fill=0, stroke=1)
+
+    # Title (name, uppercase and left-aligned)
+    c.setFont('LibreBaskerville-Bold', 14)
     c.setFillColor(colors.black)
-    c.drawString(x + padding, line_y - 12, f"Teknik: {data.get('teknik', '')}")
-    # storlek
-    sz = data.get('storlek', '')
-    if sz:
-        c.drawString(x + padding, line_y - 25, f"Storlek: {sz}")
-    # pris
-    c.setFont(*styles['PRICE_FONT'])
-    price_text = f"{data.get('pris', 0)} kr"
-    w = c.stringWidth(price_text, *styles['PRICE_FONT'])
-    c.drawString(x + CARD_WIDTH - padding - w, y + padding, price_text)
+    namn = data.get('namn', '').upper()
+    c.drawString(x + padding, y + CARD_HEIGHT - padding - 14, namn)
+
+    # Information
+    c.setFont('LibreBaskerville', 10)
+    teknik = data.get('teknik', '')
+    storlek = data.get('storlek', '')
+    datum = data.get('datum', '')
+    line1 = "Teknik:"
+    line2 = "Storlek:"
+    line3 = "Datum:"
+    c.drawString(x + padding, y + CARD_HEIGHT - padding - 40, line1)
+    c.drawString(x + padding, y + CARD_HEIGHT - padding - 55, line2)
+    c.drawString(x + padding, y + CARD_HEIGHT - padding - 70, line3)
+    c.setFont('LibreBaskerville-Bold', 11)
+    c.drawString(x + 25 * mm, y + CARD_HEIGHT - padding - 40, teknik)
+    c.drawString(x + 25 * mm, y + CARD_HEIGHT - padding - 55, storlek)
+    c.drawString(x + 25 * mm, y + CARD_HEIGHT - padding - 70, f"{datum}")
+
+    # Pris
+    # c.setFont('LibreBaskerville', 11)
+    # c.drawString(x + padding, y + CARD_HEIGHT - padding - 40, "Pris:")
+    c.setFont('LibreBaskerville-Bold', 11)
+    c.drawRightString(x + CARD_WIDTH - padding, y + padding - 5, f"{data.get('pris', 0)} kr")
+
+    # Konstnär
+    konstnar = data.get('konstnär', '')
+    if konstnar:
+        # c.setFont('LibreBaskerville', 11)
+        # c.drawString(x + padding, y + padding + 5, "Konstnär:")
+        c.setFont('LibreBaskerville-Bold', 11)
+        c.drawString(x + padding, y + padding - 5, konstnar)
 
 # --------------------
 # Main: generate PDF
 # --------------------
 def create_cards(data_file, output_file):
-    # page/card config
     PAGE_WIDTH, PAGE_HEIGHT = A4
     CARD_WIDTH = 85 * mm
     CARD_HEIGHT = 52.48 * mm
-    padding = 6 * mm
+    padding = 10 * mm
     MARGIN_X = 10 * mm
     MARGIN_Y = 10 * mm
     cols = int((PAGE_WIDTH - 2*MARGIN_X)//CARD_WIDTH)
     rows = int((PAGE_HEIGHT - 2*MARGIN_Y)//CARD_HEIGHT)
-    # styles
+
     styles = {
         'CARD_WIDTH': CARD_WIDTH,
         'CARD_HEIGHT': CARD_HEIGHT,
         'padding': padding,
-        'BACKGROUND_COLOR': colors.HexColor('#fdfcfb'),
-        'BORDER_COLOR': colors.HexColor('#a7988a'),
-        'LINE_COLOR': colors.HexColor('#e3d5ca'),
-        'TITLE_FONT': ('Helvetica-Bold', 14),
-        'TEXT_FONT': ('Helvetica', 9),
-        'PRICE_FONT': ('Helvetica-Oblique', 12)
     }
-    # load
+
     df = load_data(data_file)
-    # PDF
     c = canvas.Canvas(output_file, pagesize=A4)
     col = row = 0
     for _, row_data in df.iterrows():
@@ -107,7 +125,7 @@ def create_cards(data_file, output_file):
 # --------------------
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description='Generate printable art cards from data file')
-    p.add_argument('data_file', help='Input .json, .csv, or .xlsx file with keys namn, teknik, storlek, pris')
+    p.add_argument('data_file', help='Input .json, .csv, or .xlsx file with keys namn, teknik, storlek, pris, konstnär')
     p.add_argument('-o', '--output', default='kartkort.pdf', help='Output PDF filename')
     args = p.parse_args()
     create_cards(args.data_file, args.output)
