@@ -32,7 +32,7 @@ def load_data(path):
         else:
             return pd.read_excel(path)
     else:
-        raise ValueError(f"Unsupported file format: {ext}")
+        raise ValueError(f"Filformat som inte stöds: {ext}")
 
 # --------------------
 # Draw one card
@@ -62,14 +62,11 @@ def draw_card(c, x, y, data, styles):
     datum = data.get('datum', '')
     line1 = "Teknik:"
     line2 = "Storlek:"
-    line3 = "Datum:"
     c.drawString(x + padding, y + CARD_HEIGHT - padding - 40, line1)
     c.drawString(x + padding, y + CARD_HEIGHT - padding - 55, line2)
-    c.drawString(x + padding, y + CARD_HEIGHT - padding - 70, line3)
     c.setFont('LibreBaskerville-Bold', 11)
     c.drawString(x + 25 * mm, y + CARD_HEIGHT - padding - 40, teknik)
     c.drawString(x + 25 * mm, y + CARD_HEIGHT - padding - 55, storlek)
-    c.drawString(x + 25 * mm, y + CARD_HEIGHT - padding - 70, f"{datum}")
 
     # Pris
     # c.setFont('LibreBaskerville', 11)
@@ -119,7 +116,7 @@ def create_cards(data_file, output_file):
             c.showPage()
             row = 0
     c.save()
-    print(f"Created {output_file} with {len(df)} cards from {data_file}.")
+    print(f"Skapade {output_file} med {len(df)} kort från {data_file}.")
 
 # --------------------
 # Entry: CLI args
@@ -131,7 +128,7 @@ if __name__ == '__main__':
 
     if len(sys.argv) == 1:
         # No arguments: use defaults
-        print("No arguments given. Using default input/output.")
+        print(f"Inga argument angivna. Använder {default_input}.")
         create_cards(default_input, default_output)
     else:
         # Use argparse as usual
