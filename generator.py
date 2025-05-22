@@ -1,9 +1,12 @@
+
 #!/usr/bin/env python3
 
 import pandas as pd
 import argparse
 import json
 import os
+import sys
+import subprocess
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -69,16 +72,12 @@ def draw_card(c, x, y, data, styles):
     c.drawString(x + 25 * mm, y + CARD_HEIGHT - padding - 55, storlek)
 
     # Pris
-    # c.setFont('LibreBaskerville', 11)
-    # c.drawString(x + padding, y + CARD_HEIGHT - padding - 40, "Pris:")
     c.setFont('LibreBaskerville-Bold', 11)
     c.drawRightString(x + CARD_WIDTH - padding, y + padding - 5, f"{data.get('pris', 0)} kr")
 
     # Konstnär
     konstnar = data.get('konstnär', '')
     if konstnar:
-        # c.setFont('LibreBaskerville', 11)
-        # c.drawString(x + padding, y + padding + 5, "Konstnär:")
         c.setFont('LibreBaskerville-Bold', 11)
         c.drawString(x + padding, y + padding - 5, konstnar)
 
@@ -102,6 +101,9 @@ def create_cards(data_file, output_file):
     }
 
     df = load_data(data_file)
+    if 'klart' in df.columns:
+        df = df[~df['klart'].astype(bool)]
+
     c = canvas.Canvas(output_file, pagesize=A4)
     col = row = 0
     for _, row_data in df.iterrows():
@@ -118,23 +120,31 @@ def create_cards(data_file, output_file):
     c.save()
     print(f"Skapade {output_file} med {len(df)} kort från {data_file}.")
 
+    input("✔ Klart. Tryck Enter för att öppna kort...")
+
+    try:
+        if sys.platform.startswith('darwin'):
+            subprocess.run(['open', output_file])
+        elif os.name == 'nt':
+            os.startfile(output_file)
+        elif os.name == 'posix':
+            subprocess.run(['xdg-open', output_file])
+    except Exception as e:
+        print(f"Kunde inte öppna filen automatiskt: {e}")
+
 # --------------------
 # Entry: CLI args
 # --------------------
 if __name__ == '__main__':
-    import sys
     default_input = 'målningar.csv'
-    default_output = 'kartkort.pdf'
+    default_output = 'gallerikort.pdf'
 
     if len(sys.argv) == 1:
-        # No arguments: use defaults
         print(f"Inga argument angivna. Använder {default_input}.")
         create_cards(default_input, default_output)
     else:
-        # Use argparse as usual
         p = argparse.ArgumentParser(description='Generate printable art cards from data file')
         p.add_argument('data_file', help='Input .json, .csv, or .xlsx file with keys namn, teknik, storlek, pris, konstnär')
         p.add_argument('-o', '--output', default='kartkort.pdf', help='Output PDF filename')
         args = p.parse_args()
         create_cards(args.data_file, args.output)
-
