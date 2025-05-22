@@ -56,7 +56,7 @@ def draw_card(c, x, y, data, styles):
     c.setFont('LibreBaskerville-Bold', 14)
     c.setFillColor(colors.black)
     namn = data.get('namn', '').upper()
-    c.drawString(x + padding, y + CARD_HEIGHT - padding - 14, namn)
+    c.drawString(x + padding, y + CARD_HEIGHT - padding - 5, namn)
 
     # Information
     c.setFont('LibreBaskerville', 10)
@@ -66,10 +66,10 @@ def draw_card(c, x, y, data, styles):
     line1 = "Teknik:"
     line2 = "Storlek:"
     c.drawString(x + padding, y + CARD_HEIGHT - padding - 40, line1)
-    c.drawString(x + padding, y + CARD_HEIGHT - padding - 55, line2)
+    c.drawString(x + padding, y + CARD_HEIGHT - padding - 60, line2)
     c.setFont('LibreBaskerville-Bold', 11)
-    c.drawString(x + 25 * mm, y + CARD_HEIGHT - padding - 40, teknik)
-    c.drawString(x + 25 * mm, y + CARD_HEIGHT - padding - 55, storlek)
+    c.drawString(x + 27 * mm, y + CARD_HEIGHT - padding - 40, teknik)
+    c.drawString(x + 27 * mm, y + CARD_HEIGHT - padding - 60, storlek)
 
     # Pris
     c.setFont('LibreBaskerville-Bold', 11)
